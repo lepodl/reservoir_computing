@@ -47,6 +47,23 @@ class Lorenz63():
         self.update(dx, dy, dz)
         return np.array([self.x, self.y, self.z])
 
+    def res(self, time, *args):
+        if len(args) == 0:
+            self.x, self.y, self.z = np.random.rand(3)
+        elif len(args) == 1:
+            self.x, self.y, self.z = np.random.RandomState(args).rand(3)
+        else:
+            self.x, self.y, self.z = args
+
+        states = []
+        for i in range(time):
+            state = self.run()
+            states.append(state)
+        states = np.stack(states, axis=1)
+        washout = int(time / 100)
+        washout = washout if washout < 100 else 100
+        states = states[:, washout:]
+        return states
 
 class RandomFeatureMap():
 
@@ -122,13 +139,12 @@ class RandomFeatureMap():
         out = np.stack(out, axis=1)
         return out
 
-    def fit_da(self, u_ob, label=None, ensembles=100, eta=0.2, sigma=0.1, gamma=1000., if_save_state=False):
+    def fit_da(self, u_ob, label=None, ensembles=100, eta=0.2, gamma=1000., if_save_state=False):
         self.fit_lr(u_ob, label)
         seq_len = u_ob.shape[1] - 1
         seq_len = seq_len if seq_len < 1000 else 1000
         u_cov = np.eye(self.D) * eta  # observation uncertainty
         W_cov = np.eye(self.W_lr_dim) * gamma
-        walk_sigma = np.eye(self.W_lr_dim) * sigma
 
         B = np.zeros((self.W_lr_dim, self.D), dtype=np.float32)
         for i in range(self.D):
@@ -149,7 +165,7 @@ class RandomFeatureMap():
             W_lr = W_post.reshape((self.D, self.D_r, ensembles))
             temp = np.tanh(np.dot(self.W_in, u_post) + self.b_in[:, np.newaxis])
             u_forecast = np.einsum("jki, ki->ji", W_lr, temp)
-            W_forecast = W_post  # + np.random.multivariate_normal(np.zeros(self.W_lr_dim), cov=walk_sigma, size=ensembles).T
+            W_forecast = W_post
 
             # filter
             u_diff = u_forecast - np.mean(u_forecast, axis=1, keepdims=True)
@@ -176,6 +192,11 @@ class RandomFeatureMap():
 
 
 class TestBlock(unittest.TestCase):
+    @staticmethod
+    def loss(x, y):
+        loss = np.linalg.norm(x - y, ord=2, axis=0)
+        return loss
+
     def _test_lorenz(self):
         lorenz = Lorenz63(10., 28., 8 / 3, delta_t=0.02)
         lorenz.x, lorenz.y, lorenz.z = 1., 2., -1.
@@ -185,7 +206,8 @@ class TestBlock(unittest.TestCase):
             states.append(state)
         states = np.stack(states, axis=1)
         states = states[:, 40:]
-        np.save("lorenz_attractor2.npy", states)
+        # np.save("lorenz_attractor.npy", states)
+
         # Plot
         fig = plt.figure()
         ax = fig.gca(projection='3d')
@@ -198,8 +220,12 @@ class TestBlock(unittest.TestCase):
         plt.show()
 
     def _test_run_lr(self):
-        u = np.load("lorenz_attractor.npy")
-        u_test = np.load("lorenz_attractor2.npy")
+        # u = np.load("lorenz_attractor.npy")
+        # u_test = np.load("lorenz_attractor2.npy")
+        lorenz = Lorenz63(10., 28., 8 / 3, delta_t=0.02)
+        u = lorenz.res(20100, 2)
+        u_test = lorenz.res(5000, 3)
+
         dt = 0.02
         D_r = 300
         N = 2000
@@ -216,26 +242,32 @@ class TestBlock(unittest.TestCase):
         max_time_unit = int(time * dt / lyapunov_exp)
         time_ticks = [l / lyapunov_exp / dt for l in range(max_time_unit)]
         u_predict = rfda.forward(u_test[:, 0], time=time)
-        fig, ax = plt.subplots(3, 1, figsize=(8, 5))
+        fig, ax = plt.subplots(4, 1, figsize=(8, 6))
         ax = ax.flatten()
         coords = ["x coordinate", "y coordinate", "z coordinate"]
+        loss = self.loss(u_test[:, :time], u_predict)
         for i in range(3):
             ax[i].plot(range(time), u_test[i, :time], 'k', lw=1, label="target system")
             ax[i].plot(range(time), u_predict[i, :], 'r', lw=1, label="free running RFDA")
             ax[i].set_xticks([])
             ax[i].text(0.1, 0.8, coords[i], fontsize=10, ha='center', va='center', color='b', transform=ax[i].transAxes)
+        ax[3].plot(range(time), loss, 'k', lw=1, label="loss")
+        ax[3].legend(loc=(0.05, 0.7), fontsize=12)
         ax[0].legend(loc=(0.61, 1.1), fontsize='x-small')
-        ax[2].set_xticks(time_ticks)
-        ax[2].set_xticklabels(np.arange(max_time_unit))
-        ax[2].set_xlabel('$ \lambda_{max}t $')
+        ax[3].set_xticks(time_ticks)
+        ax[3].set_xticklabels(np.arange(max_time_unit))
+        ax[3].set_xlabel('$ \lambda_{max}t $')
         ax[0].set_title("LR_without noise")
 
         plt.savefig("./LR_predict_lorenz.png")
         plt.show()
 
     def _test_run_lr_noise(self):
-        u = np.load("lorenz_attractor.npy")
-        u_test = np.load("lorenz_attractor2.npy")
+        # u = np.load("lorenz_attractor.npy")
+        # u_test = np.load("lorenz_attractor2.npy")
+        lorenz = Lorenz63(10., 28., 8 / 3, delta_t=0.02)
+        u = lorenz.res(20100, 2)
+        u_test = lorenz.res(5000, 3)
         dt = 0.02
         D_r = 300
         N = 2000
@@ -254,25 +286,31 @@ class TestBlock(unittest.TestCase):
         max_time_unit = int(time * dt / lyapunov_exp)
         time_ticks = [l / lyapunov_exp / dt for l in range(max_time_unit)]
         u_predict = rfda.forward(u_test[:, 0], time=time)
-        fig, ax = plt.subplots(3, 1, figsize=(8, 5))
+        fig, ax = plt.subplots(4, 1, figsize=(8, 6))
         ax = ax.flatten()
         coords = ["x coordinate", "y coordinate", "z coordinate"]
+        loss = self.loss(u_test[:, :time], u_predict)
         for i in range(3):
             ax[i].plot(range(time), u_test[i, :time], 'k', lw=1, label="target system")
             ax[i].plot(range(time), u_predict[i, :], 'r', lw=1, label="free running RFDA")
             ax[i].set_xticks([])
             ax[i].text(0.1, 0.8, coords[i], fontsize=10, ha='center', va='center', color='b', transform=ax[i].transAxes)
+        ax[3].plot(range(time), loss, 'k', lw=1, label="loss")
+        ax[3].legend(loc=(0.05, 0.7), fontsize=12)
         ax[0].legend(loc=(0.61, 1.1), fontsize='x-small')
-        ax[2].set_xticks(time_ticks)
-        ax[2].set_xticklabels(np.arange(max_time_unit))
-        ax[2].set_xlabel('$ \lambda_{max}t $')
+        ax[3].set_xticks(time_ticks)
+        ax[3].set_xticklabels(np.arange(max_time_unit))
+        ax[3].set_xlabel('$ \lambda_{max}t $')
         ax[0].set_title("LR_with noise")
         plt.savefig("./LR_predict_noiselorenz.png")
         plt.show()
 
     def test_run_da_noise(self):
-        u = np.load("lorenz_attractor.npy")
-        u_test = np.load("lorenz_attractor2.npy")
+        # u = np.load("lorenz_attractor.npy")
+        # u_test = np.load("lorenz_attractor2.npy")
+        lorenz = Lorenz63(10., 28., 8 / 3, delta_t=0.02)
+        u = lorenz.res(4040, 2)
+        u_test = lorenz.res(4040, 3)
 
         dt = 0.02
         D_r = 300
@@ -287,24 +325,28 @@ class TestBlock(unittest.TestCase):
         W_in = np.random.uniform(-0.005, 0.005, size=(D_r, D))
         b = np.random.uniform(-4, 4, size=(D_r))
         rfda = RandomFeatureMap(W_in, b, ridge_param)
-        rfda.fit_da(u_noise, None, ensembles=100, eta=eta, gamma=1000, sigma=0.01, if_save_state=False)
+        rfda.fit_da(u_noise, None, ensembles=300, eta=eta, gamma=1000, if_save_state=False)
         time = 500
         max_time_unit = int(time * dt / lyapunov_exp)
         time_ticks = [l / lyapunov_exp / dt for l in range(max_time_unit)]
         u_predict = rfda.forward(u_test[:, 0], time=time)
 
-        fig, ax = plt.subplots(3, 1, figsize=(8, 5))
+        fig, ax = plt.subplots(4, 1, figsize=(8, 6))
         ax = ax.flatten()
         coords = ["x coordinate", "y coordinate", "z coordinate"]
+        loss = self.loss(u_test[:, :time], u_predict)
         for i in range(3):
             ax[i].plot(range(time), u_test[i, :time], 'k', lw=1, label="target system")
             ax[i].plot(range(time), u_predict[i, :], 'r', lw=1, label="free running RFDA")
             ax[i].set_xticks([])
             ax[i].text(0.1, 0.8, coords[i], fontsize=10, ha='center', va='center', color='b', transform=ax[i].transAxes)
+        ax[3].plot(range(time), loss, 'k', lw=1, label="loss")
+        ax[3].legend(loc=(0.05, 0.7), fontsize=12)
         ax[0].legend(loc=(0.61, 1.1), fontsize='x-small')
-        ax[2].set_xticks(time_ticks)
-        ax[2].set_xticklabels(np.arange(max_time_unit))
-        ax[2].set_xlabel('$ \lambda_{max}t $')
+        ax[3].set_xticks(time_ticks)
+        ax[3].set_xticklabels(np.arange(max_time_unit))
+        ax[3].set_xlabel('$ \lambda_{max}t $')
+
         ax[0].set_title("DA_with noise")
         plt.savefig("./DA_predict_noiselorenz.png")
         plt.show()
