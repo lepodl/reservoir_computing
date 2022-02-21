@@ -36,8 +36,8 @@ class Esn(object):
         self.W = None
         self.W_in = None
         self.W_bias = None
-        self.W_lr = None
-        self.W_lr_dim = None
+        self.W_lr = np.zeros((n_outputs, n_reservoir))
+        self.W_lr_dim = n_outputs * n_reservoir
 
         if isinstance(random_state, np.random.RandomState):
             self.random_state_ = random_state
@@ -88,24 +88,27 @@ class Esn(object):
             self.state = self.func(self.state, inputs[:, n])
             states[:, n] = self.state
 
-        # washout
-        self.washout = max(int(n_iteration / 10), self.washout)
+        # for plot total series, add the last point of input
+        temp = self.func(self.state, inputs[:, -1])
+
+
         outputs = outputs[:, self.washout:]
         states = states[:, self.washout:]
         yxt = np.dot(outputs, states.T)
         xxt = np.dot(states, states.T)
         self.W_lr = np.dot(yxt, np.linalg.inv(xxt + self.ridge_param * np.eye(self.n_reservoir)))
 
+        states = np.concatenate([states, temp[:, np.newaxis]], axis=1)
         pred_train = np.dot(self.W_lr, states)
         if not self.silent:
-            print("mse:", np.mean(np.sqrt(np.sum((pred_train - outputs) ** 2, axis=0))))
+            print("mse:", np.mean(np.sqrt(np.sum((pred_train[:, :-1] - outputs) ** 2, axis=0))))
+        return pred_train
 
-    def fit_da(self, inputs, outputs=None, ensembles=100, eta=0.1, gamma=1000.):
-        self.fit(inputs, outputs)
+    def fit_da(self, inputs, outputs=None, ensembles=100, eta=0.1, gamma=1000., initial_zero=False, return_train_prediction=False):
+
         n_iteration = inputs.shape[1] - 1
         # n_iteration = n_iteration if n_iteration < 1000 else 1000
 
-        self.W_lr_dim = self.W_lr.shape[0] * self.W_lr.shape[1]
         u_cov = np.eye(self.n_inputs) * eta  # observation uncertainty
         W_cov = np.eye(self.W_lr_dim) * gamma
 
@@ -115,9 +118,16 @@ class Esn(object):
 
         # initial post distribution
         u_post = (inputs[:, 0] + np.random.multivariate_normal(np.zeros(self.n_inputs), cov=u_cov, size=ensembles)).T
-        W_post = (self.W_lr.reshape(-1) + np.random.multivariate_normal(np.zeros(self.W_lr_dim), cov=W_cov,
-                                                                        size=ensembles)).T
-        states = np.broadcast_to(self.state[:, np.newaxis], (self.n_reservoir, ensembles))
+        if not initial_zero:
+            W_post = (self.W_lr.reshape(-1) + np.random.multivariate_normal(np.zeros(self.W_lr_dim), cov=W_cov,
+                                                                            size=ensembles)).T
+            self.fit(inputs, outputs)
+            states = np.broadcast_to(self.state[:, np.newaxis], (self.n_reservoir, ensembles))
+        else:
+            W_post = np.random.multivariate_normal(np.zeros(self.W_lr_dim), cov=W_cov, size=ensembles).T
+            # self.fit(inputs[:, :self.washout])
+            states = np.broadcast_to(self.state[:, np.newaxis], (self.n_reservoir, ensembles))
+
         for idx in range(n_iteration):
             print(f" da idx {idx}", end="\r")
             # forecast
@@ -142,6 +152,18 @@ class Esn(object):
             # u_post = u_forecast - P_uu @ np.linalg.inv(P_uu + u_cov) @ (u_forecast - u_ob_noise)
             # W_post = W_forecast - P_wu @ np.linalg.inv(P_uu + u_cov) @ (u_forecast - u_ob_noise)
         self.W_lr = W_post.mean(axis=1).reshape((self.n_outputs, self.n_reservoir))
+        train_prediction = None
+        if not return_train_prediction:
+            state = np.zeros(self.n_reservoir)
+            total_states = np.zeros((self.n_reservoir, inputs.shape[1]))
+            for i in range(inputs.shape[1]):
+                state = self.func(state, inputs[:, i])
+                total_states[:, i] = state
+            train_prediction = np.dot(self.W_lr, total_states[:, self.washout:])
+        return train_prediction
+
+
+
 
     def func_forward(self, state):
             input_pattern = np.dot(self.W_lr, state)

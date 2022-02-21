@@ -66,14 +66,27 @@ def downsample_curvature():
 
 
 if __name__ == '__main__':
-    model = lorenz(10., 28., 8 / 3, 0.02, 1., 2., -1.)
-    states = model.propagate(4000)
-    fig = plt.figure()
+    model = lorenz(10., 28., 8 / 3, 0.01, 8.6, 2., 3.6)
+    states = model.propagate(90, 10)
+    fig = plt.figure(figsize=(5, 5), dpi=200)
     ax = fig.gca(projection='3d')
 
-    ax.plot(states[0, :, 0], states[1, :, 0], states[2, : 0], lw=0.5)
-    ax.set_xlabel("X Axis")
-    ax.set_ylabel("Y Axis")
-    ax.set_zlabel("Z Axis")
-    ax.set_title("Lorenz Attractor")
+    ax.plot(states[0, 1000:], states[1, 1000:], states[2, 1000:], lw=1.)
+    # ax.set_xlabel("X Axis")
+    # ax.set_ylabel("Y Axis")
+    # ax.set_zlabel("Z Axis")
+    # ax.set_title("Lorenz Attractor")
+    ax.grid(False)
+    ax.view_init(elev=30,  # 仰角
+                 azim=-90, # 方位角
+                 )
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    ax.axis('off')
+    ax.xaxis.pane.fill = False  # Left pane
+    ax.yaxis.pane.fill = False  # Right pane
+    print('ax.elev {}'.format(ax.elev))  # default 30
+    print('ax.azim {}'.format(ax.azim))  # default -60
+    plt.savefig("lorenz.eps")
     plt.show()

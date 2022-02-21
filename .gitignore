@@ -450,6 +450,8 @@ cython_debug/
 **/*.npy
 **/*.png
 **/*.npz
+**/*.eps
+**/*.ai
 
 .idea
 
