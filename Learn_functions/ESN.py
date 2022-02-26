@@ -129,7 +129,7 @@ class Esn(object):
             states = np.broadcast_to(self.state[:, np.newaxis], (self.n_reservoir, ensembles))
 
         for idx in range(n_iteration):
-            print(f" da idx {idx}", end="\r")
+            # print(f" da idx {idx}", end="\r")
             # forecast
             W_lr = W_post.reshape((self.n_outputs, self.n_reservoir, ensembles))
             states = states * (1 - self.leaky_rate) + self.leaky_rate * np.tanh(np.einsum('jk, ki->ji', self.W, states) \
@@ -161,8 +161,6 @@ class Esn(object):
                 total_states[:, i] = state
             train_prediction = np.dot(self.W_lr, total_states[:, self.washout:])
         return train_prediction
-
-
 
 
     def func_forward(self, state):

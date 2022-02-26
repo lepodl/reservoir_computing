@@ -452,6 +452,8 @@ cython_debug/
 **/*.npz
 **/*.eps
 **/*.ai
+**/*.csv
+Learn_functions/result
 
 .idea
 

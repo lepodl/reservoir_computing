@@ -5,6 +5,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from utils import downsample_curvature
 
 
 class lorenz(object):
@@ -59,10 +60,7 @@ class lorenz(object):
             self.state = out[:, i, 0]
             t += self.delta_t
         return out[:, n_washout:, 0]
-
-
-def downsample_curvature():
-    pass
+        # return out[:, n_washout:, :]
 
 
 if __name__ == '__main__':
@@ -70,15 +68,16 @@ if __name__ == '__main__':
     states = model.propagate(90, 10)
     fig = plt.figure(figsize=(5, 5), dpi=200)
     ax = fig.gca(projection='3d')
+    states, ind = downsample_curvature(states, 0.1, np.array([100, 15]))
 
-    ax.plot(states[0, 1000:], states[1, 1000:], states[2, 1000:], lw=1.)
+    ax.plot(states[0, :], states[1, :], states[2, :], lw=1.)
     # ax.set_xlabel("X Axis")
     # ax.set_ylabel("Y Axis")
     # ax.set_zlabel("Z Axis")
     # ax.set_title("Lorenz Attractor")
     ax.grid(False)
-    ax.view_init(elev=30,  # 仰角
-                 azim=-90, # 方位角
+    ax.view_init(elev=15,  # 仰角
+                 azim=100, # 方位角
                  )
     ax.set_xticks([])
     ax.set_yticks([])
@@ -88,5 +87,5 @@ if __name__ == '__main__':
     ax.yaxis.pane.fill = False  # Right pane
     print('ax.elev {}'.format(ax.elev))  # default 30
     print('ax.azim {}'.format(ax.azim))  # default -60
-    plt.savefig("lorenz.eps")
+    # plt.savefig("lorenz.eps")
     plt.show()
