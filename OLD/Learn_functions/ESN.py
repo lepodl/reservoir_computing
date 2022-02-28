@@ -96,6 +96,8 @@ class Esn(object):
         states = states[:, self.washout:]
         yxt = np.dot(outputs, states.T)
         xxt = np.dot(states, states.T)
+        # tempp = np.linalg.lstsq(states.T, outputs.T, rcond=None)[0]
+        # self.W_lr = tempp.T
         self.W_lr = np.dot(yxt, np.linalg.inv(xxt + self.ridge_param * np.eye(self.n_reservoir)))
 
         states = np.concatenate([states, temp[:, np.newaxis]], axis=1)

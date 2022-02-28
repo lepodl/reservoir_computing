@@ -453,7 +453,7 @@ cython_debug/
 **/*.eps
 **/*.ai
 **/*.csv
-Learn_functions/result
+OLD/Learn_functions/result
 
 .idea
 
