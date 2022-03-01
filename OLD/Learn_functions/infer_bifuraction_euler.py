@@ -3,12 +3,11 @@
 # @Author : lepold
 # @File : infer_bifuraction.py
 
-import os
 import matplotlib.pyplot as plt
 import numpy as np
 from lorenz import lorenz
-from ESN_Control_Euler import Esn
-from utils import downsample_curvature
+from Model.ESN_Control_Euler import Esn
+from utils.utils import downsample_curvature
 
 
 base_num = 0

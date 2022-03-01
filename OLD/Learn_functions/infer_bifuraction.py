@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from lorenz import lorenz
 from ESN_Control import Esn
-from utils import downsample_curvature
+from utils.utils import downsample_curvature
 
 
 def fixed_point(rho):

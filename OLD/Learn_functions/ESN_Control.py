@@ -5,7 +5,7 @@
 
 
 import numpy as np
-from utils import progress_bar
+from utils.utils import progress_bar
 import time
 
 class Esn(object):

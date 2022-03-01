@@ -5,7 +5,7 @@
 
 
 import numpy as np
-from utils import progress_bar
+from utils.utils import progress_bar
 import time
 
 class Esn(object):
@@ -50,7 +50,7 @@ class Esn(object):
         else:
             self.random_state_ = np.random.mtrand._rand
         self.silent = silent
-        self.init_weights(sig=0.008)
+        self.init_weights(sig=0.008, c=0.004)
 
     def init_weights(self, sig=0.008, c=0.004):
         W = (self.random_state_.rand(self.n_reservoir, self.n_reservoir) - 0.5) * 2  # [-1, 1]
@@ -111,7 +111,7 @@ class Esn(object):
 
         pred_train = np.dot(self.W_lr, states)
         if not self.silent:
-            print("mse:", np.sqrt(np.sum((pred_train - outputs) ** 2)))
+            print("mse:", np.mean(np.sqrt(np.sum((pred_train[:, :-1] - outputs) ** 2, axis=0))))
         return pred_train
 
     def fit_da(self, inputs, control_par, outputs=None, ensembles=100, eta=0.1, gamma=1000., initial_zero=False,

@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*- 
-# @Time : 2022/2/14 16:56 
+# @Time : 2022/2/28 17:04 
 # @Author : lepold
-# @File : lorenz.py
+# @File : Lorenz.py
 
 import numpy as np
-import matplotlib.pyplot as plt
-from utils.utils import downsample_curvature
 
 
-class lorenz(object):
+class Lorenz(object):
     """
      It's a differential equations:
          dx/dt=s(y-x)
@@ -44,7 +42,7 @@ class lorenz(object):
         dz = (r[0] * r[1] - self.b * r[2])
         return np.array([dx, dy, dz])
 
-    def propagate(self, time_train, time_washout=10):
+    def propagate(self, time_train, time_washout=10, require_detail=False):
         n = int(time_train / self.delta_t)
         n_washout = int(time_washout / self.delta_t)
         t = 0.
@@ -59,33 +57,7 @@ class lorenz(object):
             out[:, i-1, 1:4] = np.stack([self.state + k1 / 2, self.state + k2 / 2, self.state + k3], axis=-1)
             self.state = out[:, i, 0]
             t += self.delta_t
-        return out[:, n_washout:, 0]
-        # return out[:, n_washout:, :]
-
-
-if __name__ == '__main__':
-    model = lorenz(10., 28., 8 / 3, 0.01, 8.6, 2., 3.6)
-    states = model.propagate(90, 10)
-    fig = plt.figure(figsize=(5, 5), dpi=200)
-    ax = fig.gca(projection='3d')
-    states, ind = downsample_curvature(states, 0.1, np.array([100, 15]))
-
-    ax.plot(states[0, :], states[1, :], states[2, :], lw=1.)
-    # ax.set_xlabel("X Axis")
-    # ax.set_ylabel("Y Axis")
-    # ax.set_zlabel("Z Axis")
-    # ax.set_title("Lorenz Attractor")
-    ax.grid(False)
-    ax.view_init(elev=15,  # 仰角
-                 azim=100, # 方位角
-                 )
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-    ax.axis('off')
-    ax.xaxis.pane.fill = False  # Left pane
-    ax.yaxis.pane.fill = False  # Right pane
-    print('ax.elev {}'.format(ax.elev))  # default 30
-    print('ax.azim {}'.format(ax.azim))  # default -60
-    # plt.savefig("lorenz.eps")
-    plt.show()
+        if not require_detail:
+            return out[:, n_washout:, 0]
+        else:
+            return out[:, n_washout:, :]
