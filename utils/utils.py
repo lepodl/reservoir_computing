@@ -91,7 +91,7 @@ def progress_bar(progress, time):
         Elapsed time till current progress.
     """
 
-    print("\r| Progress: [{0:10s}] {1:.1f}% in {2:.0f} sec".format(
+    print("\r|Progress: [{0:10s}] {1:.1f}% in {2:.0f} sec".format(
         '#' * int(progress * 10), progress * 100, time), end='')
     if progress >= 1:
         print("\r| Progress: [{0:10s}] {1:.1f}% in {2:.2f} sec".format(

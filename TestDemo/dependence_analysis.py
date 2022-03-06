@@ -2,7 +2,7 @@
 # @Time : 2022/3/1 12:39 
 # @Author : lepold
 # @File : dependence_analysis.py
-
+import os
 
 import numpy as np
 from time import time
@@ -20,14 +20,15 @@ def mse(outputs, targets):
 
 def distance(x, y):
     loss = np.linalg.norm(x - y, ord=2, axis=0)
+    loss = loss / np.linalg.norm(x, ord=2, axis=0)
     return loss
 
 
 def prediction_power(x, y, dt=0.01, unit=0.91):
     loss = distance(x, y)
-    if (loss[:10] < 3).all():
+    if (loss[:10] < 0.1).all():
         try:
-            out = np.where(loss > 5)[0][0]
+            out = np.where(loss > 0.55)[0][0]
         except:
             out = x.shape[1]
     else:
@@ -38,6 +39,22 @@ def prediction_power(x, y, dt=0.01, unit=0.91):
 
 def run(args):
     idx, leak, spectral, n_reservoir = args
+    dt = 0.01
+    model = Lorenz(10., 28., 8 / 3, dt, idx)
+    states = model.propagate(50, 10)
+    train_data = states[:, :1000]
+    # model = Lorenz(10., 28., 8 / 3, dt)
+    # states = model.propagate(50, 10)
+    test_data = states[:, 1000:2000]
+    del states
+
+    test_inputs, test_targets = test_data[:, :], test_data[:, 1:]
+    test_length = test_targets.shape[1]
+
+    eta = 1.
+    noise_train_data = train_data + np.random.multivariate_normal(np.zeros(3), np.eye(3) * eta,
+                                                                  size=train_data.shape[1]).T
+
     esn = Esn(n_inputs=3,
               n_outputs=3,
               n_reservoir=int(n_reservoir),
@@ -54,28 +71,13 @@ def run(args):
     return pred_power
 
 
-dt = 0.01
-model = Lorenz(10., 28., 8 / 3, dt)
-states = model.propagate(50, 10)
-train_data = states[:, :1000]
-# model = Lorenz(10., 28., 8 / 3, dt)
-# states = model.propagate(50, 10)
-test_data = states[:, 1000:2000]
-del states
-
-test_inputs, test_targets = test_data[:, :], test_data[:, 1:]
-test_length = test_targets.shape[1]
-
-eta = 1.
-noise_train_data = train_data + np.random.multivariate_normal(np.zeros(3), np.eye(3) * eta,
-                                                              size=train_data.shape[1]).T
-
 leaky_range = [0.1, 1.]
 spectral_range = [0.5, 1.5]
 num_samples = 100
 n_reservoir = 100
 samples = 100
 
+os.makedirs("../Data/split_data", exist_ok=True)
 leaks = np.linspace(leaky_range[0], leaky_range[1], num=num_samples)
 spectrals = np.linspace(spectral_range[0], spectral_range[1], num=num_samples)
 xx, yy = np.meshgrid(leaks, spectrals)
@@ -83,9 +85,11 @@ xx = xx.reshape(-1)
 yy = yy.reshape(-1)
 total_length = xx.shape[0]
 
+os.makedirs("../Data/split_data2", exist_ok=True)
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
 
 for i in range(rank, total_length, size - 1):
     print(f"rank {i} start")
@@ -95,6 +99,6 @@ for i in range(rank, total_length, size - 1):
         out = p.map(run, zip(np.random.randint(0, 1000, 100), np.ones(samples) * leak, np.ones(samples) * spectral,
                              np.ones(samples, dtype=np.int) * n_reservoir))
     out = np.array(out, dtype=np.float32)
-    np.save(f"../Data/split_data/{i}.npy", np.array(out))
+    np.save(f"../Data/split_data2/{i}.npy", np.array(out))
     print(f"rank {i} end")
 

@@ -19,15 +19,15 @@ def mse(outputs, targets):
 
 def distance(x, y):
     loss = np.linalg.norm(x - y, ord=2, axis=0)
+    loss = loss / np.linalg.norm(x, ord=2, axis=0)
     return loss
 
 
-# TODO(luckyzlb15@163.com): prediction power definition may be not correct
 def prediction_power(x, y, dt=0.01, unit=0.91):
     loss = distance(x, y)
-    if (loss[:10] < 3).all():
+    if (loss[:10] < 0.1).all():
         try:
-            out = np.where(loss > 10)[0][0]
+            out = np.where(loss > 0.55)[0][0]
         except:
             out = x.shape[1]
     else:
@@ -38,6 +38,13 @@ def prediction_power(x, y, dt=0.01, unit=0.91):
 
 def run_lr(arg):
     idx, eta, min_hidden, min_radius = arg
+    dt = 0.01
+    train_len = 1000
+    model = Lorenz(10., 28., 8 / 3, dt, idx)
+    states = model.propagate(80, 10)
+    train_data = states[:, :train_len]
+    test_data = states[:, train_len:(train_len + 1000)]
+    train_data_noise = train_data + np.random.multivariate_normal(np.zeros(3), np.eye(3) * eta, size=train_len).T
     esn = Esn(n_inputs=3,
               n_outputs=3,
               n_reservoir=int(min_hidden),
@@ -60,6 +67,13 @@ def run_lr(arg):
 
 def run_da(arg):
     idx, eta, min_hidden, min_radius = arg
+    dt = 0.01
+    train_len = 1000
+    model = Lorenz(10., 28., 8 / 3, dt, idx)
+    states = model.propagate(80, 10)
+    train_data = states[:, :train_len]
+    test_data = states[:, train_len:(train_len + 1000)]
+    train_data_noise = train_data + np.random.multivariate_normal(np.zeros(3), np.eye(3) * eta, size=train_len).T
     esn = Esn(n_inputs=3,
               n_outputs=3,
               n_reservoir=int(min_hidden),
@@ -81,15 +95,10 @@ def run_da(arg):
 
 
 # glbal parameter
-dt = 0.01
-train_len = 1000
-model = Lorenz(10., 28., 8 / 3, dt)
-states = model.propagate(80, 10)
-train_data = states[:, :train_len]
-test_data = states[:, train_len:(train_len + 1000)]
+
 
 etas = np.linspace(-5, 5, 50)
-etas = np.power(10, etas)
+etas = np.exp(etas)
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -99,12 +108,11 @@ os.makedirs("../Data/res_da", exist_ok=True)
 
 for i in range(rank, 50, size):
     eta = etas[i]
-    train_data_noise = train_data + np.random.multivariate_normal(np.zeros(3), np.eye(3) * eta, size=train_len).T
     with pool(processes=50) as p:
-        res_lr = p.map(run_lr, zip(np.arange(100), np.ones(100, dtype=np.float32) * eta,
+        res_lr = p.map(run_lr, zip(np.random.randint(0, 1000, 100), np.ones(100, dtype=np.float32) * eta,
                                    np.ones(100, dtype=np.int32) * 92,
                                    np.ones(100, dtype=np.float32) * 0.148))
-        res_da = p.map(run_da, zip(np.arange(100), np.ones(100, dtype=np.float32) * eta,
+        res_da = p.map(run_da, zip(np.random.randint(0, 1000, 100), np.ones(100, dtype=np.float32) * eta,
                                    np.ones(100, dtype=np.int32) * 92,
                                    np.ones(100, dtype=np.float32) * 0.148))
     res_lr = np.array(res_lr)

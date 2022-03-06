@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def compose_dependence_analysis():
-    data_dir = "../Data/split_data"
+    data_dir = "../Data/split_data2"
     leaky_range = [0.1, 1.]
     spectral_range = [0.5, 1.5]
     num_samples = 100
@@ -52,5 +52,5 @@ def compose_noise_analysis():
 
 
 if __name__ == '__main__':
-    # compose_dependence_analysis()
-    compose_noise_analysis()
+    compose_dependence_analysis()
+    # compose_noise_analysis()

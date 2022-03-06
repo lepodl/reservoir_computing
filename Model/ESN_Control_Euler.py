@@ -107,15 +107,14 @@ class Esn(object):
         # self.W_lr = np.dot(yxt, np.linalg.inv(xxt + self.ridge_param * np.eye(self.n_reservoir)))
         temp = np.linalg.lstsq(states.T, outputs.T, rcond=None)[0]
         self.W_lr = temp.T
-        self.state = states[:, int(states.shape[1] / 40)]
+        # self.state = states[:, int(states.shape[1] / 40)]
 
         pred_train = np.dot(self.W_lr, states)
         if not self.silent:
-            print("mse:", np.mean(np.sqrt(np.sum((pred_train[:, :-1] - outputs) ** 2, axis=0))))
+            print("mse:", np.mean(np.sqrt(np.sum((pred_train - outputs) ** 2, axis=0))))
         return pred_train
 
-    def fit_da(self, inputs, control_par, outputs=None, ensembles=100, eta=0.1, gamma=1000., initial_zero=False,
-               return_train_prediction=False):
+    def fit_da(self, inputs, control_par, outputs=None, ensembles=100, eta=0.1, gamma=1000., initial_zero=False):
 
         n_iteration = inputs.shape[1]
         # n_iteration = n_iteration if n_iteration < 1000 else 1000
@@ -184,15 +183,6 @@ class Esn(object):
                 # u_post = u_forecast - P_uu @ np.linalg.inv(P_uu + u_cov) @ (u_forecast - u_ob_noise)
                 # W_post = W_forecast - P_wu @ np.linalg.inv(P_uu + u_cov) @ (u_forecast - u_ob_noise)
             self.W_lr = W_post.mean(axis=1).reshape((self.n_outputs, self.n_reservoir))
-        # train_prediction = None
-        # if not return_train_prediction:
-        #     state = np.zeros(self.n_reservoir)
-        #     total_states = np.zeros((self.n_reservoir, inputs.shape[1]))
-        #     for i in range(inputs.shape[1]):
-        #         state = self.func(state, inputs[:, i])
-        #         total_states[:, i] = state
-        #     train_prediction = np.dot(self.W_lr, total_states[:, self.washout:])
-        # return train_prediction
 
     def func_forward(self, state, control_par):
         input_pattern = np.dot(self.W_lr, state)

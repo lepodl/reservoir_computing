@@ -113,8 +113,8 @@ class Esn(object):
         u_cov = np.eye(self.n_inputs) * eta  # observation uncertainty
         W_cov = np.eye(self.W_lr_dim) * gamma
 
-        B = np.zeros((self.W_lr_dim, self.n_reservoir), dtype=np.float32)
-        for i in range(self.n_reservoir):
+        B = np.zeros((self.W_lr_dim, self.n_outputs), dtype=np.float32)
+        for i in range(self.n_outputs):
             B[i * self.n_reservoir: (i + 1) * self.n_reservoir, i] = 1.
 
         # initial post distribution
@@ -139,9 +139,7 @@ class Esn(object):
             # forecast
             W_lr = W_post.reshape((self.n_outputs, self.n_reservoir, ensembles))
             states = states * (1 - self.leaky_rate) + self.leaky_rate * np.tanh(np.einsum('jk, ki->ji', self.W, states) \
-                                                                                + np.einsum('jk, ki->ji', self.W_in,
-                                                                                            u_post) + self.W_bias[:,
-                                                                                                      np.newaxis])
+                        + np.einsum('jk, ki->ji', self.W_in, u_post) + self.W_bias[:, np.newaxis])
             u_forecast = np.einsum("jki, ki->ji", W_lr, states)
             W_forecast = W_post
 
@@ -150,11 +148,11 @@ class Esn(object):
             W_diff = W_forecast - np.mean(W_forecast, axis=1, keepdims=True)
             P_uu = self.outer_product_sum(u_diff) / (ensembles - 1)
             P_wu = self.outer_product_sum(W_diff, u_diff) / (ensembles - 1)
-            P_wu = P_wu  # * B # * 1.0002 # localization to mitigate against possible spurious correlations.
+            P_wu = P_wu  # * B * 1.0002 # localization to mitigate against possible spurious correlations.
 
             u_ob_noise = inputs[:,
                          [
-                             idx + 1]]  # + np.random.multivariate_normal(np.zeros(self.n_input), cov=u_cov, size=ensembles).T
+                             idx + 1]] + np.random.multivariate_normal(np.zeros(self.n_inputs), cov=u_cov, size=ensembles).T
             R, _, _, _ = np.linalg.lstsq(P_uu + u_cov, u_forecast - u_ob_noise, rcond=None)
             u_post = u_forecast - P_uu @ R
             W_post = W_forecast - P_wu @ R
